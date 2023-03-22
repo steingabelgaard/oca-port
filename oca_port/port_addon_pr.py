@@ -19,6 +19,7 @@ AUTHOR_EMAILS_TO_SKIP = [
     "oca+oca-travis@odoo-community.org",
     "oca-ci@odoo-community.org",
     "shopinvader-git-bot@shopinvader.com",
+    "sgrunbot@adm.steingabelgaard.dk"
 ]
 
 SUMMARY_TERMS_TO_SKIP = [
@@ -27,7 +28,11 @@ SUMMARY_TERMS_TO_SKIP = [
 ]
 
 PR_BRANCH_NAME = (
-    "oca-port-pr-{pr_number}-from-{from_branch}-to-{to_branch}"
+    "{to_branch}-oca-port-pr-{pr_number}-from-{from_branch}-{user}"
+)
+
+PR_ISSUE_BRANCH_NAME = (
+    "{to_branch}-issue{issue}-oca-port-pr-{pr_number}-from-{from_branch}-{user}"
 )
 
 FOLDERS_TO_SKIP = [
@@ -57,7 +62,7 @@ class PortAddonPullRequest():
             self, repo, upstream_org, repo_name,
             from_branch, to_branch, fork, user_org, addon, storage,
             verbose=False, non_interactive=False,
-            create_branch=True, push_branch=True
+            create_branch=True, push_branch=True, draft_pr=True, issue=False
             ):
         """Port pull requests of `addon`."""
         self.repo = repo
@@ -73,6 +78,8 @@ class PortAddonPullRequest():
         self.non_interactive = non_interactive
         self.create_branch = create_branch
         self.push_branch = push_branch
+        self.draft = draft_pr
+        self.issue = issue
 
     def run(self):
         print(
@@ -172,11 +179,21 @@ class PortAddonPullRequest():
                 return None, based_on_previous
         # Create a local branch based on upstream
         if self.create_branch:
-            branch_name = PR_BRANCH_NAME.format(
-                pr_number=pr.number,
-                from_branch=self.from_branch.name,
-                to_branch=self.to_branch.name,
-            )
+            if self.issue:
+                branch_name = PR_ISSUE_BRANCH_NAME.format(
+                    pr_number=pr.number,
+                    from_branch=self.from_branch.name,
+                    to_branch=self.to_branch.name,
+                    issue=self.issue,
+                    user=os.getlogin(),
+                )
+            else:
+                branch_name = PR_BRANCH_NAME.format(
+                    pr_number=pr.number,
+                    from_branch=self.from_branch.name,
+                    to_branch=self.to_branch.name,
+                    user=os.getlogin(),
+                )
             if branch_name in self.repo.heads:
                 # If the local branch already exists, ask the user if he wants
                 # to recreate it + check if this existing branch is based on
@@ -326,7 +343,7 @@ class PortAddonPullRequest():
                 f"to {self.to_branch.name}."
             )
         return {
-            "draft": True,
+            "draft": self.draft,
             "title": title,
             "head": f"{self.user_org}:{pr_branch.name}",
             "base": self.to_branch.name,

@@ -11,7 +11,10 @@ from .misc import bcolors as bc
 from .port_addon_pr import PortAddonPullRequest
 
 MIG_BRANCH_NAME = (
-    "{branch}-mig-{addon}"
+    "{branch}-mig-{addon}-{user}"
+)
+MIG_ISSUE_BRANCH_NAME = (
+    "{branch}-issue{issue}-mig-{addon}-{user}"
 )
 MIG_MERGE_COMMITS_URL = (
     "https://github.com/OCA/maintainer-tools/wiki/Merge-commits-in-pull-requests"
@@ -61,7 +64,8 @@ BLACKLIST_TIPS = "\n".join([
 class MigrateAddon():
     def __init__(
             self, repo, upstream_org, repo_name, from_branch, to_branch,
-            fork, user_org, addon, storage, verbose=False, non_interactive=False
+            fork, user_org, addon, storage, verbose=False,
+            non_interactive=False, draft=True, issue=False
             ):
         self.repo = repo
         self.upstream_org = upstream_org
@@ -73,10 +77,19 @@ class MigrateAddon():
         self.addon = addon
         self.storage = storage
         self.mig_branch = misc.Branch(
-            repo, MIG_BRANCH_NAME.format(branch=to_branch.name[:4], addon=addon)
+            repo,
+            MIG_ISSUE_BRANCH_NAME.format(
+                branch=to_branch.name[:4],
+                addon=addon, user=os.getlogin(), 
+                issue=issue
+            ) if issue else MIG_BRANCH_NAME.format(
+                branch=to_branch.name[:4], addon=addon, user=os.getlogin()
+            )
         )
         self.verbose = verbose
         self.non_interactive = non_interactive
+        self.draft = draft
+        self.issue = issue
 
     def run(self):
         blacklisted = self.storage.is_addon_blacklisted()
@@ -121,7 +134,8 @@ class MigrateAddon():
             self.repo, self.upstream_org, self.repo_name,
             self.from_branch, self.mig_branch, self.fork, self.user_org,
             self.addon, self.storage, self.verbose,
-            create_branch=False, push_branch=False
+            create_branch=False, push_branch=False, draft_pr=self.draft,
+            issue=self.issue
         ).run()
         self._print_tips()
 
